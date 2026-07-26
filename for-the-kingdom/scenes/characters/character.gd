@@ -6,6 +6,7 @@ const GRAVITY := 600.0
 @export var damage : int
 @export var jump_intensity : float
 @export var knockback_intensity : float
+@export var knockdown_intensity : float
 @export var max_health : int
 @export var speed : float
 
@@ -14,7 +15,7 @@ const GRAVITY := 600.0
 @onready var damage_emitter := $DamageEmitter
 @onready var damage_receiver : DamageReceiver = $DamageReceiver
 
-enum State {IDLE, WALK, ATTACK, TAKEOFF, JUMP, LAND, JUMPKICK, HURT}
+enum State {IDLE, WALK, ATTACK, TAKEOFF, JUMP, LAND, JUMPKICK, HURT, FALL, GROUNDED}
 
 var anim_map := {
 	State.IDLE: "idle",
@@ -25,6 +26,8 @@ var anim_map := {
 	State.LAND: "land",
 	State.JUMPKICK: "jumpkick",
 	State.HURT: "hurt",
+	State.FALL: "fall",
+	State.GROUNDED: "grounded",
 }
 var current_health := 0
 var height := 0.0
@@ -60,11 +63,14 @@ func handle_animations() -> void:
 		animation_player.play(anim_map[state])
 
 func handle_air_time(delta: float) -> void:
-	if state == State.JUMP or state == State.JUMPKICK:
+	if [State.JUMP, State.JUMPKICK, State.FALL].has(state):
 		height += height_speed * delta
 		if height < 0:
 			height = 0
-			state = State.LAND
+			if state == State.FALL:
+				state = State.GROUNDED
+			else:
+				state = State.LAND
 		else:
 			height_speed -= GRAVITY * delta
 
@@ -98,14 +104,18 @@ func on_takeoff_complete() -> void:
 func on_land_complete() -> void:
 	state = State.IDLE
 
-func on_receive_damage(damage: int, direction: Vector2) -> void:
-	current_health = clamp(current_health, 0, max_health)
-	if current_health <= 0:
-		queue_free()
+func on_receive_damage(amount: int, direction: Vector2, hit_type: DamageReceiver.HitType) -> void:
+	current_health = clamp(current_health - amount, 0, max_health)
+	if current_health == 0 or hit_type == DamageReceiver.HitType.KNOCKDOWN:
+		state = State.FALL
+		height_speed = knockdown_intensity
 	else:
 		state = State.HURT
-		velocity = direction * knockback_intensity
-#testing a change for github desktop committ
-func on_emit_damage(damage_receiver: DamageReceiver) -> void:
-	var direction := Vector2.LEFT if damage_receiver.global_position.x < global_position.x else Vector2.RIGHT
-	damage_receiver.damage_received.emit(damage, direction)
+	velocity = direction * knockback_intensity
+
+func on_emit_damage(receiver: DamageReceiver) -> void:
+	var hit_type := DamageReceiver.HitType.NORMAL
+	var direction := Vector2.LEFT if receiver.global_position.x < global_position.x else Vector2.RIGHT
+	if state == State.JUMPKICK:
+		hit_type = DamageReceiver.HitType.KNOCKDOWN
+	receiver.damage_received.emit(damage, direction, hit_type)
