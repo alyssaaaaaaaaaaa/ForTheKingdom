@@ -6,6 +6,7 @@ const GRAVITY := 600.0
 @export var can_respawn : bool
 @export var can_respawn_knives : bool
 @export var damage : int
+@export var damage_gunshot : int
 @export var damage_power : int
 @export var duration_grounded: float
 @export var duration_between_knife_respawn : int
@@ -30,7 +31,7 @@ const GRAVITY := 600.0
 @onready var projectile_aim : RayCast2D = $ProjectileAim
 @onready var weapon_position : Node2D = $KnifeSprite/WeaponPosition
 
-enum State {IDLE, WALK, ATTACK, TAKEOFF, JUMP, LAND, JUMPKICK, HURT, FALL, GROUNDED, DEATH, FLY, PREP_ATTACK, THROW, PICKUP, SHOOT}
+enum State {IDLE, WALK, ATTACK, TAKEOFF, JUMP, LAND, JUMPKICK, HURT, FALL, GROUNDED, DEATH, FLY, PREP_ATTACK, THROW, PICKUP, SHOOT, PREP_SHOOT}
 
 var anim_attacks := []
 var anim_map := {
@@ -49,7 +50,8 @@ var anim_map := {
 	State.PREP_ATTACK: "idle",
 	State.THROW: "throw",
 	State.PICKUP: "pickup",
-	State.SHOOT: "shoor",
+	State.SHOOT: "shoot",
+	State.PREP_SHOOT: "idle",
 }
 var attack_combo_index := 0
 var current_health := 0
@@ -74,6 +76,7 @@ func _process(delta: float) -> void:
 	handle_animations()
 	handle_air_time(delta)
 	handle_prep_attack()
+	handle_prep_shoot()
 	handle_grounded()
 	handle_knife_respawn()
 	handle_death(delta)
@@ -100,6 +103,9 @@ func handle_input() -> void:
 	pass
 
 func handle_prep_attack() -> void:
+	pass
+
+func handle_prep_shoot() -> void:
 	pass
 
 func handle_grounded() -> void:
@@ -185,6 +191,19 @@ func can_pickup_collectible() -> bool:
 		return true
 	return false
 
+func shoot_gun() -> void:
+	state = State.SHOOT
+	velocity = Vector2.ZERO
+	var target_point := heading * (global_position.x + get_viewport_rect().size.x)
+	var target := projectile_aim.get_collider()
+	if target != null:
+		target_point = projectile_aim.get_collision_point()
+		target.on_receive_damage(damage_gunshot, heading, DamageReceiver.HitType.KNOCKDOWN)
+	var weapon_root_position := Vector2(weapon_position.global_position.x, position.y)
+	var weapon_height := -weapon_position.position.y
+	var distance := target_point.x - weapon_position.global_position.x
+	EntityManager.spawn_shot.emit(weapon_root_position, distance, weapon_height)
+
 func pickup_collectible() -> void:
 	if can_pickup_collectible():
 		var collectible_areas := collectible_sensor.get_overlapping_areas()
@@ -192,7 +211,7 @@ func pickup_collectible() -> void:
 		if collectible.type == Collectible.Type.KNIFE and not has_knife:
 			has_knife = true
 		if collectible.type == Collectible.Type.GUN and not has_gun:
-			has_knife = true
+			has_gun = true
 		collectible.queue_free()
 		
 func is_collision_disabled() -> bool:

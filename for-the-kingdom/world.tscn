@@ -1,9 +1,9 @@
-[gd_scene format=3 uid="uid://uqrqng3qanfq"]
+[gd_scene load_steps=10 format=3 uid="uid://uqrqng3qanfq"]
 
-[ext_resource type="Script" uid="uid://bx45c6uejqw5j" path="res://world.gd" id="1_58n65"]
+[ext_resource type="Script" path="res://world.gd" id="1_58n65"]
 [ext_resource type="PackedScene" uid="uid://df3rikr3va82q" path="res://scenes/stage/stage.tscn" id="1_ea3cy"]
 [ext_resource type="PackedScene" uid="uid://cvr6opvp31hp6" path="res://scenes/characters/player.tscn" id="2_fso2d"]
-[ext_resource type="Script" uid="uid://hyuilqxqej45" path="res://scenes/stage/actors_container.gd" id="3_1ub62"]
+[ext_resource type="Script" path="res://scenes/stage/actors_container.gd" id="3_1ub62"]
 [ext_resource type="PackedScene" uid="uid://qilhs2wt8rl8" path="res://scenes/props/barrel.tscn" id="4_cs001"]
 [ext_resource type="PackedScene" uid="uid://ba7x8fhqs3fta" path="res://scenes/characters/basic_enemy.tscn" id="5_15mmh"]
 [ext_resource type="PackedScene" uid="uid://clqck6kawlwhi" path="res://scenes/props/knife.tscn" id="6_4co1t"]
@@ -12,58 +12,59 @@
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ktcqf"]
 size = Vector2(6, 64)
 
-[node name="World" type="Node2D" unique_id=1843841183]
+[node name="World" type="Node2D"]
 script = ExtResource("1_58n65")
 
-[node name="Stage" parent="." unique_id=581908834 instance=ExtResource("1_ea3cy")]
+[node name="Stage" parent="." instance=ExtResource("1_ea3cy")]
 
-[node name="Camera" type="Camera2D" parent="." unique_id=1206510364]
+[node name="Camera" type="Camera2D" parent="."]
 position = Vector2(50, 32)
 
-[node name="InvisibleWalls" type="Node2D" parent="Camera" unique_id=302058711]
+[node name="InvisibleWalls" type="Node2D" parent="Camera"]
 position = Vector2(-50, -32)
 
-[node name="LeftWall" type="AnimatableBody2D" parent="Camera/InvisibleWalls" unique_id=2040837129]
+[node name="LeftWall" type="AnimatableBody2D" parent="Camera/InvisibleWalls"]
 collision_layer = 128
 collision_mask = 0
 sync_to_physics = false
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Camera/InvisibleWalls/LeftWall" unique_id=499326442]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Camera/InvisibleWalls/LeftWall"]
 position = Vector2(0, 32)
 shape = SubResource("RectangleShape2D_ktcqf")
 
-[node name="RightWall" type="AnimatableBody2D" parent="Camera/InvisibleWalls" unique_id=462065792]
+[node name="RightWall" type="AnimatableBody2D" parent="Camera/InvisibleWalls"]
 position = Vector2(100, 0)
 collision_layer = 128
 collision_mask = 0
 sync_to_physics = false
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Camera/InvisibleWalls/RightWall" unique_id=1466416566]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Camera/InvisibleWalls/RightWall"]
 position = Vector2(0, 32)
 shape = SubResource("RectangleShape2D_ktcqf")
 
-[node name="ActorsContainer" type="Node2D" parent="." unique_id=653683784]
+[node name="ActorsContainer" type="Node2D" parent="."]
 y_sort_enabled = true
 script = ExtResource("3_1ub62")
 
-[node name="Player" parent="ActorsContainer" unique_id=2144586907 instance=ExtResource("2_fso2d")]
-position = Vector2(25, 45)
-has_gun = true
+[node name="Player" parent="ActorsContainer" instance=ExtResource("2_fso2d")]
+position = Vector2(36, 46)
 
-[node name="Barrel" parent="ActorsContainer" unique_id=66502059 instance=ExtResource("4_cs001")]
+[node name="Barrel" parent="ActorsContainer" instance=ExtResource("4_cs001")]
 position = Vector2(61, 47)
 
-[node name="BasicEnemy" parent="ActorsContainer" unique_id=902902025 node_paths=PackedStringArray("player") instance=ExtResource("5_15mmh")]
+[node name="BasicEnemy" parent="ActorsContainer" node_paths=PackedStringArray("player") instance=ExtResource("5_15mmh")]
 position = Vector2(67, 58)
 player = NodePath("../Player")
 duration_between_knife_respawn = 2000
+has_gun = true
 
-[node name="Knife" parent="ActorsContainer" unique_id=2129669395 instance=ExtResource("6_4co1t")]
+[node name="Knife" parent="ActorsContainer" instance=ExtResource("6_4co1t")]
 position = Vector2(21, 52)
 
-[node name="GoonEnemy" parent="ActorsContainer" unique_id=1815871362 node_paths=PackedStringArray("player") instance=ExtResource("7_xjatk")]
+[node name="GoonEnemy" parent="ActorsContainer" node_paths=PackedStringArray("player") instance=ExtResource("7_xjatk")]
 position = Vector2(83, 51)
 player = NodePath("../Player")
 can_respawn_knives = false
+damage_gunshot = 0
 has_knife = false
 has_gun = true

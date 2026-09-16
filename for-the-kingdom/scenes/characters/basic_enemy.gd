@@ -48,9 +48,14 @@ func goto_range_position() -> void:
 		state = State.THROW
 		time_since_knife_dismiss = Time.get_ticks_msec()
 		time_since_last_range_attack = Time.get_ticks_msec()
-
+	
 	if can_range_attack() and has_gun and projectile_aim.is_colliding():
-		state = State.SHOOT
+		state = State.PREP_SHOOT
+		time_since_prep_range_attack = Time.get_ticks_msec()
+
+func handle_prep_shoot() -> void:
+	if state == State.PREP_SHOOT and (Time.get_ticks_msec() - time_since_prep_range_attack > duration_prep_range_attack):
+		shoot_gun()
 		time_since_last_range_attack = Time.get_ticks_msec()
 
 func goto_melee_position() -> void:
@@ -90,8 +95,6 @@ func can_range_attack() -> bool:
 	if Time.get_ticks_msec() - time_since_last_range_attack < duration_between_range_attacks:
 		return false
 	return super.can_attack()
-
-
 
 func set_heading() -> void:
 	if player == null or not can_move():
