@@ -3,23 +3,27 @@ extends CharacterBody2D
 
 const GRAVITY := 600.0
 
-@export var autodestroy_on_drop : bool
 @export var can_respawn : bool
-@export var can_respawn_knives : bool
 @export var damage : int
-@export var damage_gunshot : int
-@export var damage_power : int
+@export var max_health : int
+
+@export_group("Movement")
 @export var duration_grounded: float
-@export var duration_between_knife_respawn : int
 @export var flight_speed : float
-@export var has_knife : bool
-@export var has_gun : bool
 @export var jump_intensity : float
 @export var knockback_intensity : float
 @export var knockdown_intensity : float
-@export var max_anmo_per_gun : int
-@export var max_health : int
 @export var speed : float
+
+@export_group("Weapons")
+@export var autodestroy_on_drop : bool
+@export var can_respawn_knives : bool
+@export var damage_gunshot : int
+@export var damage_power : int
+@export var duration_between_knife_respawn : int
+@export var has_knife : bool
+@export var has_gun : bool
+@export var max_ammo_per_gun : int
 
 @onready var animation_player := $AnimationPlayer
 @onready var character_sprite := $CharacterSprite
@@ -35,7 +39,7 @@ const GRAVITY := 600.0
 
 enum State {IDLE, WALK, ATTACK, TAKEOFF, JUMP, LAND, JUMPKICK, HURT, FALL, GROUNDED, DEATH, FLY, PREP_ATTACK, THROW, PICKUP, SHOOT, PREP_SHOOT}
 
-var anmo_left := 0
+var ammo_left := 0
 var anim_attacks := []
 var anim_map := {
 	State.IDLE: "idle",
@@ -182,11 +186,13 @@ func can_get_hurt() -> bool:
 
 func is_attacking() -> bool:
 	return [State.ATTACK, State.JUMPKICK].has(state)
- 
+
 func is_carrying_weapon() -> bool:
 	return has_knife or has_gun
 
 func can_pickup_collectible() -> bool:
+	if can_respawn_knives:
+		return false
 	var collectible_areas := collectible_sensor.get_overlapping_areas()
 	if collectible_areas.size() == 0:
 		return false
@@ -194,6 +200,8 @@ func can_pickup_collectible() -> bool:
 	if collectible.type == Collectible.Type.KNIFE and not is_carrying_weapon():
 		return true
 	if collectible.type == Collectible.Type.GUN and not is_carrying_weapon():
+		return true
+	if collectible.type == Collectible.Type.FOOD:
 		return true
 	return false
 
@@ -218,8 +226,9 @@ func pickup_collectible() -> void:
 			has_knife = true
 		if collectible.type == Collectible.Type.GUN and not has_gun:
 			has_gun = true
-			anmo_left = max_anmo_per_gun
-			
+			ammo_left = max_ammo_per_gun
+		if collectible.type == Collectible.Type.FOOD:
+			current_health = max_health
 		collectible.queue_free()
 		
 func is_collision_disabled() -> bool:
@@ -236,6 +245,7 @@ func on_throw_complete() -> void:
 		has_gun = false
 	else:
 		has_knife = false
+	
 	var collectible_global_position := Vector2(weapon_position.global_position.x, global_position.y)
 	var collectible_height := -weapon_position.position.y
 	EntityManager.spawn_collectible.emit(collectible_type, Collectible.State.FLY, collectible_global_position, heading, collectible_height, false)
@@ -253,6 +263,7 @@ func on_land_complete() -> void:
 
 func on_receive_damage(amount: int, direction: Vector2, hit_type: DamageReceiver.HitType) -> void:
 	if can_get_hurt():
+		attack_combo_index = 0
 		can_respawn_knives = false
 		if has_knife:
 			has_knife = false
