@@ -38,7 +38,7 @@ const GRAVITY := 600.0
 @onready var projectile_aim : RayCast2D = $ProjectileAim
 @onready var weapon_position : Node2D = $KnifeSprite/WeaponPosition
 
-enum State {IDLE, WALK, ATTACK, TAKEOFF, JUMP, LAND, JUMPKICK, HURT, FALL, GROUNDED, DEATH, FLY, PREP_ATTACK, THROW, PICKUP, SHOOT, PREP_SHOOT, RECOVER}
+enum State {IDLE, WALK, ATTACK, TAKEOFF, JUMP, LAND, JUMPKICK, HURT, FALL, GROUNDED, DEATH, FLY, PREP_ATTACK, THROW, PICKUP, SHOOT, PREP_SHOOT, RECOVER, DROP, WAIT, APPEARING}
 enum Type {PLAYER, PUNK, GOON, THUG, BOUNCER}
 
 var ammo_left := 0
@@ -62,6 +62,9 @@ var anim_map := {
 	State.SHOOT: "shoot",
 	State.PREP_SHOOT: "idle",
 	State.RECOVER: "recover",
+	State.DROP: "idle",
+	State.WAIT: "wait",
+	State.APPEARING: "idle",
 }
 var attack_combo_index := 0
 var current_health := 0
@@ -78,7 +81,8 @@ func _ready() -> void:
 	damage_receiver.damage_received.connect(on_receive_damage.bind())
 	collateral_damage_emitter.area_entered.connect(on_emit_collateral_damage.bind())
 	collateral_damage_emitter.body_entered.connect(on_wall_hit.bind())
-	current_health = max_health
+	set_health(max_health, type == Character.Type.PLAYER)
+	set_sprite_height_position()
 
 func _process(delta: float) -> void:
 	handle_input()
@@ -92,16 +96,25 @@ func _process(delta: float) -> void:
 	handle_death(delta)
 	set_heading()
 	flip_sprites()
+	set_sprite_visibility()
+	set_sprite_height_position()
+	setup_collisions()
+	move_and_slide()
+
+func set_sprite_visibility() -> void:
 	knife_sprite.visible = has_knife
 	gun_sprite.visible = has_gun
+
+func set_sprite_height_position() -> void:
 	character_sprite.position = Vector2.UP * height
 	knife_sprite.position = Vector2.UP * height
 	gun_sprite.position = Vector2.UP * height
+
+func setup_collisions() -> void:
 	collision_shape.disabled = is_collision_disabled()
 	damage_emitter.monitoring = is_attacking()
 	damage_receiver.monitorable = can_get_hurt()
 	collateral_damage_emitter.monitoring = state == State.FLY
-	move_and_slide()
 
 func handle_movement() -> void:
 	if can_move():
@@ -143,7 +156,7 @@ func handle_animations() -> void:
 		animation_player.play(anim_map[state])
 
 func handle_air_time(delta: float) -> void:
-	if [State.JUMP, State.JUMPKICK, State.FALL].has(state):
+	if [State.JUMP, State.JUMPKICK, State.FALL, State.DROP].has(state):
 		height += height_speed * delta
 		if height < 0:
 			height = 0
@@ -197,6 +210,8 @@ func is_carrying_weapon() -> bool:
 func can_pickup_collectible() -> bool:
 	if can_respawn_knives:
 		return false
+	if Time.get_ticks_msec() - time_since_knife_dismiss < duration_between_knife_respawn:
+		return false
 	var collectible_areas := collectible_sensor.get_overlapping_areas()
 	if collectible_areas.size() == 0:
 		return false
@@ -217,6 +232,7 @@ func shoot_gun() -> void:
 	if target != null:
 		target_point = projectile_aim.get_collision_point()
 		target.on_receive_damage(damage_gunshot, heading, DamageReceiver.HitType.KNOCKDOWN)
+		EntityManager.spawn_spark.emit(target.position)
 	var weapon_root_position := Vector2(weapon_position.global_position.x, position.y)
 	var weapon_height := -weapon_position.position.y
 	var distance := target_point.x - weapon_position.global_position.x
@@ -232,7 +248,7 @@ func pickup_collectible() -> void:
 			has_gun = true
 			ammo_left = max_ammo_per_gun
 		if collectible.type == Collectible.Type.FOOD:
-			current_health = max_health
+			set_health(max_health)
 		collectible.queue_free()
 		
 func is_collision_disabled() -> bool:
@@ -276,7 +292,7 @@ func on_receive_damage(amount: int, direction: Vector2, hit_type: DamageReceiver
 		if has_gun:
 			has_gun = false
 			EntityManager.spawn_collectible.emit(Collectible.Type.GUN, Collectible.State.FALL, global_position, Vector2.ZERO, 0.0, autodestroy_on_drop)
-		current_health = clamp(current_health - amount, 0, max_health)
+		set_health(current_health - amount)
 		if current_health == 0 or hit_type == DamageReceiver.HitType.KNOCKDOWN:
 			state = State.FALL
 			height_speed = knockdown_intensity
@@ -310,3 +326,7 @@ func on_wall_hit(_wall: AnimatableBody2D) -> void:
 	height_speed = knockdown_intensity
 	velocity = -velocity / 2.0
 	
+func set_health(health: int, is_emitting_signal: bool = true) -> void:
+	current_health = clamp(health, 0, max_health)
+	if is_emitting_signal:
+		DamageManager.health_change.emit(type, current_health, max_health)
